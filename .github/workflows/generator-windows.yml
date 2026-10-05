@@ -498,6 +498,20 @@ jobs:
           sed -i -e 's|updateUrl.isNotEmpty|false|' ./flutter/lib/desktop/pages/desktop_home_page.dart
           sed -i '/let (request, url) =/,/Ok(())/{/Ok(())/!d}' ./src/common.rs
 
+      # GVM Suporte: esconde o aviso "Sua instalação está com uma versão desatualizada"
+      # e tira os links "Declaração de privacidade" e "Website" da tela Sobre.
+      # Falha o build se o código do RustDesk mudar e os padrões não casarem mais.
+      - name: GVM - remove aviso de versao e links do Sobre
+        shell: bash
+        run: |
+          H=./flutter/lib/desktop/pages/desktop_home_page.dart
+          S=./flutter/lib/desktop/pages/desktop_setting_page.dart
+          sed -i -e 's|} else if (bind.mainIsInstalledLowerVersion()) {|} else if (false) {|' $H
+          perl -0pi -e "s/\s*InkWell\(\s*onTap: \(\) \{\s*launchUrlString\('[^']*'\);\s*\},\s*child: Text\(\s*translate\('(Privacy Statement|Website)'\),\s*style: linkStyle,\s*\)\.marginSymmetric\(vertical: 4\.0\)\),//g" $S
+          if grep -q 'mainIsInstalledLowerVersion' $H; then echo "::error::aviso de versao nao removido"; exit 1; fi
+          if grep -qE "translate\('(Privacy Statement|Website)'\)" $S; then echo "::error::links do Sobre nao removidos"; exit 1; fi
+          echo "GVM: aviso de versao e links do Sobre removidos"
+
       # - name: run as admin
       #   continue-on-error: true
       #   if: ${{ env.runasadmin == 'true' }}
