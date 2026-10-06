@@ -375,6 +375,20 @@ jobs:
           sed -i -e 's|{software_update_url ? <UpdateMe /> : ""}||' ./src/ui/index.tis
           sed -i '/let (request, url) =/,/Ok(())/{/Ok(())/!d}' ./src/common.rs
 
+      # GVM Suporte (interface Sciter do 32 bits): esconde os avisos de atualização e de
+      # "Sua instalação está com uma versão desatualizada", e tira os links
+      # "Declaração de privacidade" e "Website" do Sobre.
+      # Falha o build se o código do RustDesk mudar e os padrões não casarem mais.
+      - name: GVM - remove aviso de versao e links do Sobre
+        shell: bash
+        run: |
+          T=./src/ui/index.tis
+          sed -i -e 's|<UpdateMe />|""|' -e 's|handler.is_installed_lower_version()|false|' $T
+          sed -i -e '/<div \.link \.custom-event url=.*translate("Privacy Statement")/d' -e '/<div \.link \.custom-event url=.*translate("Website")/d' $T
+          if grep -qE '<UpdateMe />|is_installed_lower_version' $T; then echo "::error::aviso de versao nao removido"; exit 1; fi
+          if grep -qE 'translate\("(Privacy Statement|Website)"\)' $T; then echo "::error::links do Sobre nao removidos"; exit 1; fi
+          echo "GVM: aviso de versao e links do Sobre removidos (Sciter)"
+
       - name: Build rustdesk
         id: build
         shell: bash
@@ -532,6 +546,15 @@ jobs:
       - name: rename rustdesk.exe to filename.exe
         run: |
           mv ./SignOutput/rustdesk.exe "./SignOutput/${{ env.filename }}.exe" || echo "rustdesk"
+
+      - name: upload client as GitHub artifact
+        if: ${{ env.rdgen == 'artifact' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.filename }}-x86
+          path: ./SignOutput/${{ env.filename }}.exe
+          if-no-files-found: error
+          retention-days: 30
 
       - name: send file to rdgen server
         if: ${{ env.rdgen == 'true' }}
