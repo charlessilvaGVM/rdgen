@@ -417,6 +417,21 @@ jobs:
         run: |
           sed -i -e 's|com.carriez.flutter_hbb|${{ env.androidappid }}|' ./flutter/android/app/build.gradle
 
+      # GVM Suporte: ID próprio do app (instala ao lado do RustDesk oficial e é
+      # o que vai para a Play Store) e Sobre sem links do rustdesk.com.
+      # Falha o build se o código do RustDesk mudar e os padrões não casarem mais.
+      - name: GVM - app id e Sobre (Android)
+        shell: bash
+        run: |
+          G=./flutter/android/app/build.gradle
+          S=./flutter/lib/mobile/pages/settings_page.dart
+          sed -i -e 's|applicationId "com.carriez.flutter_hbb"|applicationId "br.com.gvmsistemas.suporte"|' $G
+          sed -i -e "s|'https://rustdesk.com/'|'https://gvmsistemas.com.br/'|g" -e "s|Text('rustdesk.com'|Text('gvmsistemas.com.br'|g" $S
+          perl -0pi -e "s/\s*SettingsTile\(\s*title: Text\(translate\(\"Privacy Statement\"\)\),\s*onPressed: \(context\) =>\s*launchUrlString\('[^']*'\),\s*leading: Icon\(Icons\.privacy_tip\),\s*\)//" $S
+          grep -q 'applicationId "br.com.gvmsistemas.suporte"' $G || { echo "::error::applicationId nao trocado"; exit 1; }
+          if grep -q "rustdesk.com" $S; then echo "::error::links rustdesk.com no Sobre"; grep -n "rustdesk.com" $S; exit 1; fi
+          echo "GVM: applicationId e Sobre ajustados"
+
       - name: change download link to custom
         if: env.downloadLink != 'https://rustdesk.com/download'
         continue-on-error: true
@@ -632,6 +647,15 @@ jobs:
             echo "No signed APK found, keeping unsigned/debug APK: $plain"
           fi
           ls -l ./signed-apk/
+
+      - name: upload client as GitHub artifact
+        if: ${{ env.rdgen == 'artifact' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.filename }}-${{ matrix.job.arch }}
+          path: ./signed-apk/${{ env.filename }}-${{ matrix.job.arch }}.apk
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: send file to rdgen server
         if: ${{ env.rdgen == 'true' }}
