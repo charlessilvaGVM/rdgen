@@ -181,7 +181,8 @@ jobs:
           if [ ! -z "${{ env.compname }}" ]; then
             find ./src/lang -name "*.rs" -exec sed -i '/powered_by_me/s|RustDesk|${{ env.compname }}|g' {} \;
           fi
-          find ./src/lang -name "*.rs" -exec sed -i -e 's|RustDesk|${{ env.appname }}|' {} \;
+          # GVM (20/10/2026): não troca "RustDesk" nas traduções; o sed mudava a CHAVE, a tradução pt-BR não era achada
+          # e apareciam textos em inglês ("About GVM Suporte"...). O src/lang.rs já troca pelo nome do app em tempo de execução.
           sed -i -e 's|RustDesk|${{ env.appname }}|' ./res/msi/Package/License.rtf
 
       - name: fix registry if appname has a space
@@ -511,6 +512,16 @@ jobs:
           if grep -q 'mainIsInstalledLowerVersion' $H; then echo "::error::aviso de versao nao removido"; exit 1; fi
           if grep -qE "translate\('(Privacy Statement|Website)'\)" $S; then echo "::error::links do Sobre nao removidos"; exit 1; fi
           echo "GVM: aviso de versao e links do Sobre removidos"
+
+      # GVM Suporte (20/10/2026): "Desenvolvido por", tela Instalar e links do MSI -> gvmsistemas.com.br;
+      # observação embaixo do nome no card do Catálogo; "Editar anotação" com 900 px e 12 linhas.
+      # O script vem deste repositório, no mesmo commit do workflow, e falha o build se algum trecho não casar.
+      - name: GVM - links, nota no Catalogo e Editar anotacao
+        shell: bash
+        run: |
+          curl -fsSL -o gvm_patch_cliente.py "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/gvm/patch_cliente.py"
+          python gvm_patch_cliente.py .
+          rm -f gvm_patch_cliente.py
 
       # - name: run as admin
       #   continue-on-error: true
