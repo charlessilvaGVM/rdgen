@@ -522,6 +522,10 @@ jobs:
           curl -fsSL -o gvm_patch_cliente.py "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/gvm/patch_cliente.py"
           python gvm_patch_cliente.py .
           rm -f gvm_patch_cliente.py
+          # logo da tela principal: fundo transparente; o app escolhe logo_light (tema claro, letra preta)
+          # ou logo_dark (tema escuro, letra clara). Precisam estar em flutter/assets ANTES do flutter build.
+          for f in logo_light logo_dark; do curl -fsSL -o flutter/assets/$f.png "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/gvm/$f.png"; done
+          ls -l flutter/assets/logo_*.png
 
       # - name: run as admin
       #   continue-on-error: true
