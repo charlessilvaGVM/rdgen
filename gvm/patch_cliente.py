@@ -8,6 +8,11 @@ Cada troca precisa casar exatamente uma vez; se o código do RustDesk mudar, o b
   4. Catálogo: a observação (nota) aparece embaixo do nome do card, legível, em até 2 linhas
      (sai da parte colorida); card do Catálogo com nota fica com 172 px de altura (os outros, 140)
   5. "Editar anotação": janela de 900 px, caixa de 12 linhas com rolagem, Enter = nova linha, até 2000 caracteres
+  6. Início automático (22/10/2026): o serviço já é "automático"; agora o Windows também o RELIGA se cair
+     (sc failure: 5 s / 10 s / 60 s), tanto no instalar do .exe quanto no .msi
+  7. .msi: o atalho "GVM_Suporte Tray" na Inicialização (abre o app na bandeja em todo login) é sempre criado
+  8. "Parar serviço" escondido (Configurações e bandeja): no Windows ele APAGA o serviço e o atalho da
+     Inicialização, e o PC some até alguém reinstalar. Se o serviço estiver parado, o botão "Iniciar" continua
 """
 import os
 import sys
@@ -181,5 +186,34 @@ trocar("flutter/lib/common/widgets/dialog.dart", """    return CustomAlertDialog
               ),
             ).workaroundFreezeLinuxMint(),
           ),""")
+
+# 6. serviço com recuperação automática (instalar pelo .exe)
+trocar("src/platform/windows.rs",
+       'sc create {app_name} binpath= \\"\\\\\\"{exe}\\\\\\" --service\\" start= auto DisplayName= \\"{app_name} Service\\"\nsc start {app_name}\n',
+       'sc create {app_name} binpath= \\"\\\\\\"{exe}\\\\\\" --service\\" start= auto DisplayName= \\"{app_name} Service\\"\nsc start {app_name}\n'
+       'sc failure {app_name} reset= 86400 actions= restart/5000/restart/10000/restart/60000\n')
+
+# 6. serviço com recuperação automática (.msi): roda o sc.exe logo depois do CreateStartService
+trocar("res/msi/Package/Components/RustDesk.wxs",
+       '\t\t<CustomAction Id="TryStopDeleteService.SetParam"',
+       '\t\t<CustomAction Id="GvmServiceRecovery" Directory="INSTALLFOLDER_INNER" ExeCommand="&quot;[System64Folder]sc.exe&quot; failure $(var.Product) reset= 86400 actions= restart/5000/restart/10000/restart/60000" Execute="deferred" Impersonate="no" Return="ignore" />\n'
+       '\t\t<CustomAction Id="TryStopDeleteService.SetParam"')
+trocar("res/msi/Package/Components/RustDesk.wxs",
+       '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />',
+       '\t\t\t<Custom Action="GvmServiceRecovery" After="CreateStartService" Condition="(NOT (Installed AND REMOVE AND NOT UPGRADINGPRODUCTCODE)) AND (NOT STOP_SERVICE=&quot;&apos;Y&apos;&quot;) AND (NOT CC_CONNECTION_TYPE=&quot;outgoing&quot;)" />\n\n'
+       '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />')
+
+# 7. .msi: atalho da bandeja na Inicialização sempre (sem depender da caixinha do instalador)
+trocar("res/msi/Package/Components/RustDesk.wxs",
+       'Condition="STARTUPSHORTCUTS = 1 AND (NOT CC_CONNECTION_TYPE=&quot;outgoing&quot;)"',
+       'Condition="NOT CC_CONNECTION_TYPE=&quot;outgoing&quot;"')
+
+# 8. esconder "Parar serviço" (equivale ao hide-stop-service=Y da configuração)
+trocar("flutter/lib/desktop/pages/desktop_setting_page.dart",
+       "    final hideStopService =\n        bind.mainGetBuildinOption(key: kOptionHideStopService) == 'Y';\n",
+       "    const hideStopService = true; // GVM: parar o serviço apaga o serviço no Windows\n")
+trocar("src/tray.rs",
+       '    let hide_stop_service = crate::ui_interface::get_builtin_option(\n        hbb_common::config::keys::OPTION_HIDE_STOP_SERVICE,\n    ) == "Y";\n',
+       '    let hide_stop_service = true; // GVM: parar o serviço apaga o serviço no Windows\n')
 
 print("GVM: patch do cliente aplicado")
