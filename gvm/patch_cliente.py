@@ -216,4 +216,22 @@ trocar("src/tray.rs",
        '    let hide_stop_service = crate::ui_interface::get_builtin_option(\n        hbb_common::config::keys::OPTION_HIDE_STOP_SERVICE,\n    ) == "Y";\n',
        '    let hide_stop_service = true; // GVM: parar o serviço apaga o serviço no Windows\n')
 
+# 9. .msi: ao atualizar, para o serviço e fecha todos os GVM_Suporte.exe antes de trocar os arquivos
+#    (sem a janela "feche os aplicativos"). 1ª tentativa antes do InstallValidate (pode não ter
+#    permissão), 2ª como SYSTEM logo depois do InstallInitialize
+#    (deferred precisa ficar entre InstallInitialize e InstallFinalize). O serviço volta no CreateStartService
+#    e a bandeja no LaunchAppTray (LAUNCH_TRAY_APP=Y é o padrão).
+GVM_PARAR = ('ExeCommand="&quot;[System64Folder]cmd.exe&quot; /c sc stop $(var.Product) &amp; '
+             'taskkill /F /T /IM $(var.Product).exe" Return="ignore"')
+trocar("res/msi/Package/Components/RustDesk.wxs",
+       '\t\t<CustomAction Id="TryStopDeleteService.SetParam"',
+       f'\t\t<CustomAction Id="GvmPararTudoAntes" Directory="INSTALLFOLDER_INNER" {GVM_PARAR} Execute="immediate" />\n'
+       f'\t\t<CustomAction Id="GvmPararTudo" Directory="INSTALLFOLDER_INNER" {GVM_PARAR} Execute="deferred" Impersonate="no" />\n'
+       '\t\t<CustomAction Id="TryStopDeleteService.SetParam"')
+trocar("res/msi/Package/Components/RustDesk.wxs",
+       '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />',
+       '\t\t\t<Custom Action="GvmPararTudoAntes" Before="InstallValidate" Condition="WIX_UPGRADE_DETECTED" />\n'
+       '\t\t\t<Custom Action="GvmPararTudo" After="InstallInitialize" Condition="WIX_UPGRADE_DETECTED" />\n\n'
+       '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />')
+
 print("GVM: patch do cliente aplicado")
