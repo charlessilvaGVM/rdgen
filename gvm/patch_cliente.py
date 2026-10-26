@@ -234,4 +234,17 @@ trocar("res/msi/Package/Components/RustDesk.wxs",
        '\t\t\t<Custom Action="GvmPararTudo" After="InstallInitialize" Condition="WIX_UPGRADE_DETECTED" />\n\n'
        '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />')
 
+# 10. .msi: coletor de inventário (gvm-inventario.ps1, posto na pasta do app pelo workflow) cria a tarefa agendada
+#     "GVM Suporte - Inventario" (SYSTEM) ao instalar/atualizar; ao desinstalar de vez, apaga a tarefa.
+trocar("res/msi/Package/Components/RustDesk.wxs",
+       '\t\t<CustomAction Id="TryStopDeleteService.SetParam"',
+       '\t\t<CustomAction Id="GvmInventarioInstalar" Directory="INSTALLFOLDER_INNER" ExeCommand="&quot;[System64Folder]WindowsPowerShell\\v1.0\\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER_INNER]gvm-inventario.ps1&quot; -Instalar" Execute="deferred" Impersonate="no" Return="ignore" />\n'
+       '\t\t<CustomAction Id="GvmInventarioRemover" Directory="INSTALLFOLDER_INNER" ExeCommand="&quot;[System64Folder]schtasks.exe&quot; /Delete /TN &quot;GVM Suporte - Inventario&quot; /F" Execute="deferred" Impersonate="no" Return="ignore" />\n'
+       '\t\t<CustomAction Id="TryStopDeleteService.SetParam"')
+trocar("res/msi/Package/Components/RustDesk.wxs",
+       '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />',
+       '\t\t\t<Custom Action="GvmInventarioInstalar" Before="InstallFinalize" Condition="NOT (REMOVE=&quot;ALL&quot;) AND (NOT CC_CONNECTION_TYPE=&quot;outgoing&quot;)" />\n'
+       '\t\t\t<Custom Action="GvmInventarioRemover" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />\n\n'
+       '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />')
+
 print("GVM: patch do cliente aplicado")

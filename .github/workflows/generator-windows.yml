@@ -679,6 +679,14 @@ jobs:
         run: |
           echo -n "${{ env.custom }}" | cat > ./rustdesk/custom_.txt
 
+      # GVM Suporte (26/10/2026): coletor de inventario vai junto na pasta do app (o .msi instala em
+      # C:\Program Files\GVM_Suporte e roda "-Instalar", que cria a tarefa agendada; ver gvm/patch_cliente.py item 10).
+      - name: GVM - coletor de inventario
+        shell: bash
+        run: |
+          curl -fsSL -o ./rustdesk/gvm-inventario.ps1 "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/gvm/gvm-inventario.ps1"
+          head -c 120 ./rustdesk/gvm-inventario.ps1; echo; ls -l ./rustdesk/gvm-inventario.ps1
+
       - name: Build self-extracted executable
         shell: bash
         if: env.UPLOAD_ARTIFACT == 'true'
