@@ -5,14 +5,16 @@ Cada troca precisa casar exatamente uma vez; se o código do RustDesk mudar, o b
   1. "Desenvolvido por GVM Sistemas" (loadPowered) abre gvmsistemas.com.br, e não rustdesk.com
   2. tela Instalar: link do contrato de licença -> gvmsistemas.com.br
   3. Aplicativos instalados do Windows (MSI): links de ajuda/contato -> gvmsistemas.com.br
-  4. Catálogo: a observação (nota) aparece embaixo do nome do card, legível, em até 2 linhas
-     (sai da parte colorida); card do Catálogo com nota fica com 172 px de altura (os outros, 140)
+  4. Catálogo: a observação (nota) sai da parte colorida do card e NÃO aparece no card (costuma ter senha;
+     29/10/2026): só ao parar o mouse sobre o nome e no "Editar anotação"
   5. "Editar anotação": janela de 900 px, caixa de 12 linhas com rolagem, Enter = nova linha, até 2000 caracteres
   6. Início automático (22/10/2026): o serviço já é "automático"; agora o Windows também o RELIGA se cair
      (sc failure: 5 s / 10 s / 60 s), tanto no instalar do .exe quanto no .msi
   7. .msi: o atalho "GVM_Suporte Tray" na Inicialização (abre o app na bandeja em todo login) é sempre criado
   8. "Parar serviço" escondido (Configurações e bandeja): no Windows ele APAGA o serviço e o atalho da
      Inicialização, e o PC some até alguém reinstalar. Se o serviço estiver parado, o botão "Iniciar" continua
+  9/10. .msi: fecha tudo antes de atualizar; coletor de inventário com tarefa agendada
+  11. mensagem nova no chat: pisca o ícone na barra de tarefas e toca o som do Windows (29/10/2026)
 """
 import os
 import sys
@@ -71,60 +73,51 @@ trocar("flutter/lib/common/widgets/peer_card.dart", """                         
                           ).paddingOnly(top: 4.0, left: 4.0, right: 4.0),""", """                            ],
                           ).paddingOnly(top: 4.0, left: 4.0, right: 4.0),""")
 
-# 4b. nota embaixo do nome, na faixa de baixo do card
-trocar("flutter/lib/common/widgets/peer_card.dart", """                      Expanded(
-                          child: Row(children: [
-                        getOnline(8, peer.online),
-                        Expanded(
+# 4b. (29/10/2026, pedido do usuário) a nota NÃO aparece no card (costuma ter senha): só ao parar o
+#     mouse sobre o nome (Catálogo) e no "Editar anotação". Antes (20/10) ela ficava embaixo do nome.
+trocar("flutter/lib/common/widgets/peer_card.dart", """                        Expanded(
                             child: Text(
                           peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.titleSmall,
                         )),
                       ]).paddingSymmetric(vertical: 8)),
-                      checkBoxOrActionMoreLandscape(peer, isTile: false),""", """                      Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                            Row(children: [
-                              getOnline(8, peer.online),
-                              Expanded(
-                                  child: Text(
-                                peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall,
-                              )),
-                            ]),
-                            if (_showNote(peer))
-                              Tooltip(
-                                message: peer.note,
-                                waitDuration: const Duration(milliseconds: 500),
-                                child: Text(
-                                  peer.note,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      height: 1.25,
-                                      color: Theme.of(context)
+                      checkBoxOrActionMoreLandscape(peer, isTile: false),""", """                        Expanded(
+                            child: _showNote(peer)
+                                ? Tooltip(
+                                    message: peer.note,
+                                    waitDuration:
+                                        const Duration(milliseconds: 500),
+                                    child: Text(
+                                      peer.alias.isEmpty
+                                          ? formatID(peer.id)
+                                          : peer.alias,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
                                           .textTheme
-                                          .bodySmall
-                                          ?.color),
-                                ),
-                              ).marginOnly(left: 14, top: 2),
-                          ]).paddingSymmetric(vertical: 8)),
+                                          .titleSmall,
+                                    ))
+                                : Text(
+                                    peer.alias.isEmpty
+                                        ? formatID(peer.id)
+                                        : peer.alias,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  )),
+                      ]).paddingSymmetric(vertical: 8)),
                       checkBoxOrActionMoreLandscape(peer, isTile: false),""")
 
-# 4c. card do Catálogo com nota fica mais alto (2 linhas a mais)
-trocar("flutter/lib/common/widgets/peers_view.dart", """                          ? SizedBox(
-                              width: 220, height: 140, child: visibilityChild)""", """                          ? SizedBox(
-                              width: 220,
-                              height: widget.peerTabIndex == PeerTabIndex.ab &&
-                                      peer.note.isNotEmpty
-                                  ? 172
-                                  : 140,
-                              child: visibilityChild)""")
+# 4c. (29/10/2026) visão em lista/blocos: idem, a nota sai da linha do card e vai para o tooltip do nome
+trocar("flutter/lib/common/widgets/peer_card.dart", "    final showNote = _showNote(peer);\n",
+       "    final showNote = false; // GVM: a nota (pode ter senha) só aparece no tooltip\n")
+trocar("flutter/lib/common/widgets/peer_card.dart", """                              message: name,
+                              waitDuration: const Duration(seconds: 1),
+                              child: Align(""", """                              message: _showNote(peer)
+                                  ? '$name\\n${peer.note}'
+                                  : name,
+                              waitDuration: const Duration(seconds: 1),
+                              child: Align(""")
 
 # 5. Editar anotação: janela grande
 trocar("flutter/lib/common/widgets/dialog.dart", """    return CustomAlertDialog(
@@ -246,5 +239,93 @@ trocar("res/msi/Package/Components/RustDesk.wxs",
        '\t\t\t<Custom Action="GvmInventarioInstalar" Before="InstallFinalize" Condition="NOT (REMOVE=&quot;ALL&quot;) AND (NOT CC_CONNECTION_TYPE=&quot;outgoing&quot;)" />\n'
        '\t\t\t<Custom Action="GvmInventarioRemover" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />\n\n'
        '\t\t\t<Custom Action="CustomActionHello" Before="InstallFinalize" />')
+
+# 11. (29/10/2026) mensagem nova no chat: se o GVM Suporte não estiver na frente, o ícone dele PISCA na barra
+#     de tarefas (até a pessoa clicar, como no AnyDesk) e toca o som de aviso do Windows. Vale para os dois
+#     lados: técnico (janela da conexão) e cliente (janela do chat/permissões). Arquivo novo gvm_aviso.dart.
+GVM_AVISO = """// GVM Suporte: aviso de mensagem nova no chat (pisca o ícone na barra de tarefas e toca o som do Windows).
+import 'dart:ffi';
+import 'dart:io';
+
+import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
+
+final class _FlashInfo extends Struct {
+  @Uint32()
+  external int cbSize;
+  @IntPtr()
+  external int hwnd;
+  @Uint32()
+  external int dwFlags;
+  @Uint32()
+  external int uCount;
+  @Uint32()
+  external int dwTimeout;
+}
+
+void gvmAvisarMensagem() {
+  if (!Platform.isWindows) return;
+  try {
+    final user32 = DynamicLibrary.open('user32.dll');
+    final kernel32 = DynamicLibrary.open('kernel32.dll');
+    final findWindowEx = user32.lookupFunction<
+        IntPtr Function(IntPtr, IntPtr, Pointer<Utf16>, Pointer<Utf16>),
+        int Function(int, int, Pointer<Utf16>, Pointer<Utf16>)>('FindWindowExW');
+    final getWindowPid = user32.lookupFunction<
+        Uint32 Function(IntPtr, Pointer<Uint32>),
+        int Function(int, Pointer<Uint32>)>('GetWindowThreadProcessId');
+    final isVisible = user32
+        .lookupFunction<Int32 Function(IntPtr), int Function(int)>('IsWindowVisible');
+    final getForeground = user32
+        .lookupFunction<IntPtr Function(), int Function()>('GetForegroundWindow');
+    final flashWindowEx = user32.lookupFunction<
+        Int32 Function(Pointer<_FlashInfo>),
+        int Function(Pointer<_FlashInfo>)>('FlashWindowEx');
+    final messageBeep = user32
+        .lookupFunction<Int32 Function(Uint32), int Function(int)>('MessageBeep');
+    final meuPid = kernel32
+        .lookupFunction<Uint32 Function(), int Function()>('GetCurrentProcessId')();
+
+    messageBeep(0x40); // MB_ICONASTERISK
+    final pid = calloc<Uint32>();
+    final info = calloc<_FlashInfo>();
+    try {
+      final frente = getForeground();
+      if (frente != 0) {
+        getWindowPid(frente, pid);
+        if (pid.value == meuPid) return; // a pessoa já está olhando o GVM Suporte
+      }
+      var h = 0;
+      for (var i = 0; i < 10000; i++) {
+        h = findWindowEx(0, h, nullptr, nullptr);
+        if (h == 0) break;
+        pid.value = 0;
+        getWindowPid(h, pid);
+        if (pid.value != meuPid || isVisible(h) == 0) continue;
+        info.ref
+          ..cbSize = sizeOf<_FlashInfo>()
+          ..hwnd = h
+          ..dwFlags = 0x0F // FLASHW_ALL | FLASHW_TIMERNOFG: pisca até a janela vir para a frente
+          ..uCount = 0
+          ..dwTimeout = 0;
+        flashWindowEx(info);
+      }
+    } finally {
+      calloc.free(pid);
+      calloc.free(info);
+    }
+  } catch (e) {
+    debugPrint('GVM: aviso de mensagem falhou: $e');
+  }
+}
+"""
+with open(os.path.join(RAIZ, "flutter/lib/gvm_aviso.dart"), "w", encoding="utf-8", newline="\n") as f:
+    f.write(GVM_AVISO)
+print("GVM: ok flutter/lib/gvm_aviso.dart (novo)")
+trocar("flutter/lib/models/chat_model.dart", "import '../main.dart';\n",
+       "import '../main.dart';\nimport '../gvm_aviso.dart';\n")
+trocar("flutter/lib/models/chat_model.dart", "    latestReceivedKey = messagekey;\n",
+       "    if (isDesktop) gvmAvisarMensagem(); // GVM: pisca na barra de tarefas e toca o som\n"
+       "    latestReceivedKey = messagekey;\n")
 
 print("GVM: patch do cliente aplicado")
